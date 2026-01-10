@@ -1,0 +1,23 @@
+/* 1. Import Font Modern (Plus Jakarta Sans) */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+/* 2. PENTING: Gunakan sintaks yang sesuai dengan project kamu */
+@import "tailwindcss";
+
+/* 3. Terapkan Font & Warna Background */
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background-color: #F8FAFC; /* Warna abu-abu soft premium */
+    color: #1e293b;
+  }
+}
+
+/* 4. Utility Scrollbar (Kode lama kamu) */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
