@@ -79,10 +79,14 @@ const DetailLayanan: React.FC = () => {
                 serviceName: service.title,
                 price: service.price,
                 image: service.image,
-                status: "Proses",
+                status: "Baru",
                 location: "Rumah (GPS)",
                 paymentMethod: selectedPayment,
                 createdAt: serverTimestamp(),
+                // --- TAMBAHKAN BARIS INI ---
+                 isChatVisible: true, // Agar chat langsung muncul di ChatList
+                updatedAt: serverTimestamp() // Agar urutannya paling atas
+    // ---------------------------
             });
 
             // 2. Buat Pesan Chat Otomatis

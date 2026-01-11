@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Send, Phone, Video, MoreVertical, Paperclip, Mic, Camera, Trash2 } from 'lucide-react'; 
 import { auth, db } from '../lib/firebase';
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
+// UPDATE: Tambahkan updateDoc di sini
+import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 
 export default function ChatRoom() {
@@ -39,7 +40,7 @@ export default function ChatRoom() {
     return () => unsubscribe();
   }, [id]);
 
-  // 2. KIRIM PESAN
+  // 2. KIRIM PESAN & UPDATE STATUS CHAT
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
@@ -48,20 +49,32 @@ export default function ChatRoom() {
     if (!user || !id) return;
 
     try {
+      // A. Masukkan pesan ke sub-collection 'messages'
       await addDoc(collection(db, "bookings", id, "messages"), {
         text: newMessage,
         senderId: user.uid, 
-        role: 'customer', // Tandai sebagai customer
+        role: 'customer', // Sesuaikan jika perlu logika role dinamis
         createdAt: serverTimestamp(),
         isRead: false
       });
+
+      // B. UPDATE DOKUMEN BOOKING UTAMA (PENTING!)
+      // Ini yang bikin chat muncul lagi di ChatList setelah dihapus
+      const bookingRef = doc(db, "bookings", id);
+      await updateDoc(bookingRef, {
+        lastMessage: newMessage,         // Update cuplikan pesan
+        updatedAt: serverTimestamp(),    // Naikkan ke urutan teratas
+        isChatVisible: true              // <--- MUNCULKAN KEMBALI DI LIST
+      });
+
       setNewMessage('');
     } catch (error) {
+      console.error(error);
       toast.error("Gagal mengirim pesan");
     }
   };
 
-  // 3. FUNGSI HAPUS PESAN
+  // 3. FUNGSI HAPUS PESAN (Hanya hapus bubble chat, bukan seluruh booking)
   const handleDeleteMessage = async (messageId: string) => {
     if(!window.confirm("Hapus pesan ini?")) return;
     
@@ -82,7 +95,7 @@ export default function ChatRoom() {
   return (
     <div className="flex flex-col h-screen bg-[#F0F2F5] animate-in fade-in duration-300">
       
-      {/* HEADER - Tetap Biru Helpera */}
+      {/* HEADER */}
       <div className="bg-[#0F3D85] p-4 flex items-center justify-between text-white shadow-md sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
@@ -118,43 +131,41 @@ export default function ChatRoom() {
          </div>
 
          {messages.map((msg) => {
-            // LOGIKA: Jika senderId adalah saya (Customer), taruh di Kanan
-            const isMe = msg.senderId === auth.currentUser?.uid;
-            
-            return (
-                <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} group`}>
-                    <div 
-                        className={`relative max-w-[80%] md:max-w-[60%] p-3 rounded-2xl text-sm shadow-sm transition-all ${
-                            isMe 
-                            ? 'bg-[#0F3D85] text-white rounded-tr-none' // Customer: Biru & Kanan
-                            : 'bg-white text-gray-800 rounded-tl-none border border-gray-100' // Mitra: Putih & Kiri
-                        }`}
-                    >
-                        {/* Label "Mitra" untuk pesan dari mitra */}
-                        {!isMe && (
-                            <p className="text-[9px] font-black text-[#0F3D85] mb-1 uppercase tracking-tighter">Mitra Utama</p>
-                        )}
-                        
-                        <p className="leading-relaxed">{msg.text}</p>
-                        
-                        <span className={`text-[9px] block mt-1 ${isMe ? 'text-blue-200 text-right' : 'text-gray-400'}`}>
-                           {msg.createdAt?.seconds 
-                             ? new Date(msg.createdAt.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-                             : '...'}
-                        </span>
+           const isMe = msg.senderId === auth.currentUser?.uid;
+           
+           return (
+               <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} group`}>
+                   <div 
+                       className={`relative max-w-[80%] md:max-w-[60%] p-3 rounded-2xl text-sm shadow-sm transition-all ${
+                           isMe 
+                           ? 'bg-[#0F3D85] text-white rounded-tr-none' 
+                           : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
+                       }`}
+                   >
+                       {!isMe && (
+                           <p className="text-[9px] font-black text-[#0F3D85] mb-1 uppercase tracking-tighter">Mitra Utama</p>
+                       )}
+                       
+                       <p className="leading-relaxed">{msg.text}</p>
+                       
+                       <span className={`text-[9px] block mt-1 ${isMe ? 'text-blue-200 text-right' : 'text-gray-400'}`}>
+                          {msg.createdAt?.seconds 
+                            ? new Date(msg.createdAt.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                            : '...'}
+                       </span>
 
-                        {/* TOMBOL HAPUS */}
-                        {isMe && (
-                            <button 
-                                onClick={() => handleDeleteMessage(msg.id)}
-                                className="absolute -left-10 top-2 p-2 bg-white text-red-500 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
-                            >
-                                <Trash2 size={12} />
-                            </button>
-                        )}
-                    </div>
-                </div>
-            );
+                       {/* TOMBOL HAPUS PESAN */}
+                       {isMe && (
+                           <button 
+                               onClick={() => handleDeleteMessage(msg.id)}
+                               className="absolute -left-10 top-2 p-2 bg-white text-red-500 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
+                           >
+                               <Trash2 size={12} />
+                           </button>
+                       )}
+                   </div>
+               </div>
+           );
          })}
          <div ref={dummyEndRef} />
       </div>
